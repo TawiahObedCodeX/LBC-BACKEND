@@ -162,7 +162,7 @@ Each feature (auth, payments, emails...) is self-contained — its routes, contr
 
 ```bash
 # 1. Clone the repo
-git clone https://github.com/your-org/church-backend.git
+git clone https://github.com/TawiahObedCodeX/LBC-BACKEND.git
 cd church-backend
 
 # 2. Copy the environment template and fill in your real secrets
@@ -188,7 +188,7 @@ Try it: `curl http://localhost/health` → `{"status":"ok", ...}`
 ### Option B — Run locally without Docker (Postgres/Redis installed on your machine)
 
 ```bash
-git clone https://github.com/your-org/church-backend.git
+git clone https://github.com/TawiahObedCodeX/LBC-BACKEND.git or Shh
 cd church-backend
 yarn install
 
