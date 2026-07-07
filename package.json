@@ -3,6 +3,21 @@
   "version": "1.0.0",
   "main": "index.js",
   "license": "MIT",
+"scripts": {
+    "dev": "nodemon src/server.js",
+    "start": "node src/server.js",
+    "worker:email": "node src/modules/emails/email.worker.js",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:deploy": "prisma migrate deploy",
+    "prisma:studio": "prisma studio",
+    "seed": "node prisma/seed.js",
+    "lint": "eslint src --ext .js",
+    "lint:fix": "eslint src --ext .js --fix",
+    "format": "prettier --write \"src/**/*.js\"",
+    "test": "jest --runInBand",
+    "prepare": "husky install"
+  },
   "dependencies": {
     "@prisma/client": "^7.8.0",
     "argon2": "^0.44.0",
