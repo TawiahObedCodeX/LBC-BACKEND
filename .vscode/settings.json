@@ -1,8 +1,11 @@
 {
     "cSpell.words": [
+        "autoincrement",
+        "axllent",
         "behaviour",
         "bullmq",
         "COOLDOWN",
+        "cuid",
         "Flutterwave",
         "forceable",
         "healthcheck",
@@ -10,8 +13,11 @@
         "HMAC",
         "HSTS",
         "isready",
+        "mailpit",
+        "otps",
         "Passw",
         "Paystack",
-        "robining"
+        "robining",
+        "rsvps"
     ]
 }

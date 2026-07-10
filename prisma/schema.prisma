@@ -1,0 +1,22 @@
+// This file is the single source of truth for the database schema.
+// Run `yarn prisma:migrate` after changing anything here to create
+// a migration, and `yarn prisma:generate` to refresh the generated
+// client that src/config/db.js imports.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Placeholder model so `prisma migrate` has something to create on
+// a fresh database and the connection can be verified end-to-end.
+// This will be replaced by the real Payment / Subscriber / AdminUser
+// models in the next step (the payments and newsletter modules).
+model HealthCheck {
+  id        Int      @id @default(autoincrement())
+  checkedAt DateTime @default(now())
+}

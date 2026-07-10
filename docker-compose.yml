@@ -1,0 +1,47 @@
+# docker-compose.yml
+# ──────────────────────────────────────────────────────────────
+# Spins up PostgreSQL and Redis exactly matching the defaults in
+# .env.example. This is the recommended way to get both services
+# running on Windows — no native PostgreSQL/Redis installers needed.
+#
+# Run:   docker compose up -d
+# Stop:  docker compose down
+# Wipe:  docker compose down -v   (also deletes the stored data)
+# ──────────────────────────────────────────────────────────────
+
+services:
+  postgres:
+    image: postgres:18
+    container_name: church-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: church_backend
+    ports:
+      - "5432:5432"
+    volumes:
+      - church_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7
+    container_name: church-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - church_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  church_postgres_data:
+  church_redis_data:
