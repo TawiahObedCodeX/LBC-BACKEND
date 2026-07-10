@@ -1,27 +1,26 @@
 /**
  * prisma/seed.js
  * ──────────────────────────────────────────────────────────────
- * Run with `yarn seed`. This is where you'll create a default admin
- * account and any other starter data once the AdminUser/Payment/
- * Subscriber models exist. Left intentionally empty for now — it's
- * here so the script exists and exits cleanly rather than erroring
- * with "file not found."
+ * Run via `yarn seed`. Right now there's nothing to seed except a
+ * HealthCheck row, so this just proves the Prisma connection works
+ * end-to-end. Replace/extend this once the AdminUser model exists
+ * (see auth module) to seed a default admin account.
  * ──────────────────────────────────────────────────────────────
  */
 
-const prisma = require('../src/config/db');
-const logger = require('../src/config/logger');
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
 
 async function main() {
-  logger.info('No seed data defined yet — add admin/payment/subscriber seeding here.');
+  const check = await prisma.healthCheck.create({ data: {} });
+  console.log('✅ Seed complete — created HealthCheck row:', check);
 }
 
 main()
-  .then(async () => {
-    await prisma.$disconnect();
-  })
-  .catch(async (err) => {
-    logger.error({ err }, 'Seed failed');
-    await prisma.$disconnect();
+  .catch((err) => {
+    console.error('❌ Seed failed:', err);
     process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
   });

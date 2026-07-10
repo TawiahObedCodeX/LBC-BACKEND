@@ -1,47 +1,86 @@
+# ──────────────────────────────────────────────────────────────
 # docker-compose.yml
 # ──────────────────────────────────────────────────────────────
-# Spins up PostgreSQL and Redis exactly matching the defaults in
-# .env.example. This is the recommended way to get both services
-# running on Windows — no native PostgreSQL/Redis installers needed.
+# Spins up PostgreSQL and Redis for local development.
+# The API itself (Node/Express) runs natively via `yarn dev`, NOT
+# inside Docker — only the database and cache/queue live here.
 #
-# Run:   docker compose up -d
-# Stop:  docker compose down
-# Wipe:  docker compose down -v   (also deletes the stored data)
+# COMMON COMMANDS:
+#   docker compose up -d       → start both containers in the background
+#   docker compose ps          → check if they're "healthy"
+#   docker compose logs -f     → watch live logs from both containers
+#   docker compose down        → stop containers, KEEP saved data
+#   docker compose down -v     → stop containers, DELETE all data
+#                                 (only use this if you want a totally
+#                                 fresh database — this cannot be undone)
 # ──────────────────────────────────────────────────────────────
 
 services:
+  # ── PostgreSQL — stores payments, subscribers, admin accounts ──
   postgres:
     image: postgres:18
     container_name: church-postgres
-    restart: unless-stopped
+    restart: unless-stopped   # auto-restarts if it crashes or Docker restarts
+
     environment:
+      # These three values ARE the database credentials.
+      # They must exactly match DATABASE_URL in your .env file.
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: church_backend
-    ports:
-      - "5432:5432"
-    volumes:
-      - church_postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
 
+    ports:
+      # LEFT side (5433)  = the port on YOUR Windows machine
+      # RIGHT side (5432) = Postgres's default port INSIDE the container
+      #
+      # Mapped to 5433 instead of the usual 5432 because this machine
+      # already has a native Postgres 18 Windows service running on
+      # 5432 — using 5433 avoids the two fighting over the same port.
+      # If DATABASE_URL in .env ever changes this port, update it here too.
+      - "5433:5432"
+
+    volumes:
+      # Persists database data on disk so it survives `docker compose down`
+      # and PC restarts — data is only lost if you run `down -v`.
+      #
+      # NOTE: Postgres 18's official image requires this mount point to
+      # be /var/lib/postgresql (NOT .../data like older Postgres versions) —
+      # using the old path causes the container to crash-loop on startup.
+      - church_postgres_data:/var/lib/postgresql
+
+    healthcheck:
+      # Docker runs this command repeatedly to check if Postgres is
+      # actually ready to accept connections (not just "started").
+      # `docker compose ps` shows "healthy" once this passes.
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s   # check every 5 seconds
+      timeout: 5s    # give up on a single check after 5 seconds
+      retries: 5     # mark "unhealthy" after 5 failed checks in a row
+
+  # ── Redis — powers caching, rate limiting, and the job queue ──
   redis:
     image: redis:7
     container_name: church-redis
     restart: unless-stopped
+
     ports:
+      # No port conflict issue here — left (host) and right
+      # (container) both stay 6379, Redis's default port.
       - "6379:6379"
+
     volumes:
+      # Persists queued jobs / cached data across restarts
       - church_redis_data:/data
+
     healthcheck:
+      # `redis-cli ping` returns "PONG" when Redis is ready
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 5s
       retries: 5
 
+# ── Named volumes — Docker manages these on your machine's disk ──
+# Referenced above by name; this is where the actual data physically lives.
 volumes:
   church_postgres_data:
   church_redis_data:
