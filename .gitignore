@@ -1,0 +1,52 @@
+# Environment variables
+.env
+.env.local
+.env.development
+.env.production
+.env.test
+
+# Node
+node_modules/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Runtime
+pids/
+*.pid
+
+# Coverage
+coverage/
+
+# Build
+dist/
+build/
+
+# Next.js
+.next/
+out/
+
+# Cache
+.cache/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Temporary
+tmp/
+temp/
+
+# Prisma generated files (if needed)
+prisma/dev.db
+
+# Docker volumes (if created locally)
+docker-data/
