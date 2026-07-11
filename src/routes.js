@@ -45,8 +45,8 @@ router.get('/health', async (req, res) => {
 });
 
 // ── Feature modules get mounted below as they're built ──────────
-// router.use('/payments', require('./modules/payments/payments.routes'));
-// router.use('/newsletter', require('./modules/newsletter/newsletter.routes'));
-// router.use('/auth', require('./modules/auth/auth.routes'));
+router.use('/payments', require('./modules/payments/payments.routes'));
+router.use('/newsletter', require('./modules/newsletter/newsletter.routes'));
+router.use('/auth', require('./modules/auth/auth.routes'));
 
 module.exports = router;

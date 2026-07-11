@@ -12,11 +12,162 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Placeholder model so `prisma migrate` has something to create on
-// a fresh database and the connection can be verified end-to-end.
-// This will be replaced by the real Payment / Subscriber / AdminUser
-// models in the next step (the payments and newsletter modules).
+// ─────────────────────────────────────────────────────────────
+// Kept from the initial setup — proves the DB connection works
+// end-to-end. Still used by /api/v1/health.
+// ─────────────────────────────────────────────────────────────
 model HealthCheck {
   id        Int      @id @default(autoincrement())
   checkedAt DateTime @default(now())
+}
+
+// ─────────────────────────────────────────────────────────────
+// AUTH — admin/staff accounts only. There is NO member/congregant
+// login in this service (see README) — this table exists purely
+// so a small number of trusted staff can log into the dashboard
+// to send newsletters and view payment records.
+// ─────────────────────────────────────────────────────────────
+model AdminUser {
+  id       String @id @default(uuid())
+  name     String
+  email    String @unique
+
+  // Never store plain-text passwords. This is an Argon2id hash,
+  // produced by auth.service.js — see that file for details.
+  passwordHash String
+
+  // Hash of the CURRENT valid refresh token (never the raw token).
+  // Storing it lets us:
+  //   1. Invalidate a session on logout (set this back to null)
+  //   2. Detect refresh-token reuse/theft (if someone presents an
+  //      old, already-rotated token, it won't match this hash)
+  // Nullable because a freshly-created admin has no active session
+  // until they log in.
+  refreshTokenHash String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("admin_users")
+}
+
+// ─────────────────────────────────────────────────────────────
+// PAYMENTS — one row per giving/donation/ticket attempt, whether
+// it ultimately succeeds or not. Keeping failed/abandoned attempts
+// (not just successes) makes it possible to answer "did the giver's
+// payment actually go through?" without guessing.
+// ─────────────────────────────────────────────────────────────
+enum PaymentPurpose {
+  TITHE
+  OFFERING
+  DONATION
+  EVENT_TICKET
+}
+
+enum PaymentStatus {
+  PENDING   // we created it and sent the giver to Paystack; no result yet
+  SUCCESS   // Paystack confirmed the money moved
+  FAILED    // Paystack confirmed the attempt failed (card declined, etc.)
+  ABANDONED // giver never completed checkout
+}
+
+model Payment {
+  id String @id @default(uuid())
+
+  // Our OWN reference, generated before we ever talk to Paystack.
+  // This is what we hand to Paystack as `reference` when initiating
+  // a transaction, and it's what /payments/verify/:reference looks
+  // up by — so a giver (or the frontend) can check status even
+  // before any webhook has arrived.
+  reference String @unique
+
+  // Amount is stored in the smallest currency unit (e.g. pesewas
+  // for GHS, kobo for NGN) — exactly how Paystack itself expects
+  // and returns amounts. This avoids floating-point rounding bugs
+  // that come from storing money as a decimal.
+  amountMinorUnits Int
+  currency         String @default("GHS")
+
+  purpose PaymentPurpose
+  status  PaymentStatus @default(PENDING)
+
+  giverName  String?
+  giverEmail String?
+
+  // Free-form extra data (e.g. which event ticket, a giving note).
+  // Kept as JSON rather than new columns so the payments module
+  // doesn't need a migration every time a new "purpose" needs one
+  // extra field.
+  metadata Json?
+
+  // The Paystack webhook event ID (not the transaction reference).
+  // A UNIQUE constraint here is what makes webhook processing
+  // idempotent at the database level: if the same event is
+  // delivered twice, the second insert/update is recognized as a
+  // duplicate instead of silently double-processing it.
+  paystackEventId String? @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
+  @@map("payments")
+}
+
+// ─────────────────────────────────────────────────────────────
+// NEWSLETTER — subscribers and the campaigns sent to them.
+// ─────────────────────────────────────────────────────────────
+enum SubscriberStatus {
+  PENDING      // signed up, hasn't clicked the confirmation email yet
+  ACTIVE       // confirmed — receives newsletters
+  UNSUBSCRIBED // opted out — must never be emailed again
+}
+
+model Subscriber {
+  id     String @id @default(uuid())
+  email  String @unique
+  status SubscriberStatus @default(PENDING)
+
+  // Random, single-use token emailed to the subscriber to confirm
+  // their address (prevents someone signing up a stranger's inbox).
+  // Cleared once used.
+  confirmToken String? @unique
+
+  // Long-lived, unique token embedded in every unsubscribe link we
+  // ever send this person. Never guessable, never reused for
+  // anything else — so an unsubscribe link never needs a login.
+  unsubscribeToken String @unique @default(uuid())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("subscribers")
+}
+
+enum CampaignStatus {
+  QUEUED    // admin hit send; jobs are being placed on the queue
+  SENDING   // worker has started processing jobs for this campaign
+  COMPLETED // every job for this campaign finished (sent or failed)
+  FAILED    // the campaign could not be processed at all
+}
+
+model Campaign {
+  id      String @id @default(uuid())
+  subject String
+  bodyHtml String
+
+  status CampaignStatus @default(QUEUED)
+
+  // Running counters, updated by the worker as it processes each
+  // recipient — lets GET /newsletter/campaigns/:id show live
+  // progress without recomputing anything from scratch.
+  totalRecipients Int @default(0)
+  sentCount       Int @default(0)
+  failedCount     Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("campaigns")
 }
