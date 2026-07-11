@@ -40,13 +40,15 @@ async function subscribe(req, res) {
 
 async function confirm(req, res) {
   const { token } = req.params;
-  await newsletterService.confirmEmail(token);
-
-  // Queue a welcome email — this is a nice touch that confirms to
-  // the subscriber "you're in!" and gives them a clear path to
-  // unsubscribe if they change their mind.
+  
+  // Call confirmEmail ONCE — it returns the updated subscriber
   const subscriber = await newsletterService.confirmEmail(token);
-  await queueWelcomeEmail({ email: subscriber.email, unsubscribeToken: subscriber.unsubscribeToken });
+  
+  // Queue a welcome email with their unsubscribe token
+  await queueWelcomeEmail({
+    email: subscriber.email,
+    unsubscribeToken: subscriber.unsubscribeToken,
+  });
 
   return success(res, null, 'Email confirmed successfully. You are now subscribed!');
 }

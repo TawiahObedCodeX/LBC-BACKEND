@@ -23,7 +23,18 @@ const { Router } = require('express');
 
 const paymentsController = require('./payments.controller');
 const { handlePaystackWebhook } = require('./payments.webhook');
-const { initiatePaymentSchema, verifyPaymentSchema, listPaymentsSchema } = require('./payments.validation');
+
+// ── FIX: Added verifyFromFrontendSchema to this import ────────
+// The route on line ~105 uses validate(verifyFromFrontendSchema)
+// but it was never imported — causing the ReferenceError crash.
+// Now it's imported alongside the other three schemas.
+const {
+  initiatePaymentSchema,
+  verifyPaymentSchema,
+  listPaymentsSchema,
+  verifyFromFrontendSchema, // ← THIS WAS MISSING — the cause of the crash
+} = require('./payments.validation');
+
 const validate = require('../../middleware/validate.middleware');
 const requireAdmin = require('../../middleware/auth.middleware');
 const asyncHandler = require('../../utils/asyncHandler');
@@ -79,6 +90,26 @@ router.get(
   requireAdmin,
   validate(listPaymentsSchema),
   asyncHandler(paymentsController.list),
+);
+
+/**
+ * POST /api/v1/payments/verify-from-frontend
+ * Public — called by the Next.js thank-you page after a giver
+ * returns from Paystack. The frontend sends the Paystack reference
+ * from the URL, and the backend verifies it with Paystack, marks
+ * the payment as SUCCESS in our database, and queues a receipt.
+ *
+ * WHY THIS SEPARATE FROM GET /verify/:reference?
+ * GET /verify/:reference looks up by OUR internal reference.
+ * This endpoint accepts the PAYSTACK reference (which is what
+ * the frontend has in the URL after redirect). It calls Paystack,
+ * extracts our internal reference from the metadata, and updates
+ * the record.
+ */
+router.post(
+  '/verify-from-frontend',
+  validate(verifyFromFrontendSchema), // ← Now this works because it's imported above
+  asyncHandler(paymentsController.verifyFromFrontend),
 );
 
 module.exports = router;

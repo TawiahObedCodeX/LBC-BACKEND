@@ -192,4 +192,61 @@ async function listPayments({ page, pageSize, status, purpose }) {
   return { items, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
 }
 
-module.exports = { initiatePayment, verifyPayment, markPaymentFromPaystackData, listPayments };
+
+// Add this function alongside the existing ones
+
+/**
+ * Verifies a payment using the Paystack reference (not our internal
+ * reference). Used by the frontend thank-you page.
+ *
+ * @param {string} paystackReference - e.g. "DON_abc123_xyz789"
+ * @returns {Promise<{ status: string, message: string, payment: object|null }>}
+ */
+async function verifyFromFrontend(paystackReference) {
+  if (!env.PAYSTACK_SECRET_KEY) {
+    throw new ApiError(500, 'Payments are not configured');
+  }
+
+  // 1. Ask Paystack for the transaction status
+  const { data } = await paystackClient.get(
+    `/transaction/verify/${encodeURIComponent(paystackReference)}`
+  );
+
+  const paystackData = data.data;
+  const status = mapPaystackStatus(paystackData.status);
+
+  // 2. Extract our internal reference from Paystack's metadata
+  const ourReference = paystackData.reference;
+
+  // 3. Find or update our Payment record
+  let payment = await prisma.payment.findUnique({
+    where: { reference: ourReference },
+  });
+
+  if (payment && payment.status !== 'SUCCESS' && status === 'SUCCESS') {
+    // Mark as success and queue receipt
+    payment = await markPaymentFromPaystackData(
+      paystackData,
+      `verify:${paystackReference}:${paystackData.status}`
+    );
+  }
+
+  return {
+    status: status.toLowerCase(),
+    message: status === 'SUCCESS'
+      ? 'Payment verified successfully. Thank you for your generosity!'
+      : 'Payment verification pending or failed.',
+    payment: payment
+      ? {
+          id: payment.id,
+          reference: payment.reference,
+          amount: payment.amountMinorUnits / 100,
+          currency: payment.currency,
+          purpose: payment.purpose,
+          status: payment.status,
+        }
+      : null,
+  };
+}
+
+module.exports = { initiatePayment, verifyPayment, markPaymentFromPaystackData, listPayments, verifyFromFrontend };

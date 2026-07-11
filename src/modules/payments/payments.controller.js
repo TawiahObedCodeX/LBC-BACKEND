@@ -23,4 +23,19 @@ async function list(req, res) {
   return success(res, result, 'Payments retrieved');
 }
 
-module.exports = { initiate, verify, list };
+//  * POST /api/v1/payments/verify-from-frontend
+//  *
+//  * Called by the Next.js thank-you page. The frontend has the
+//  * Paystack reference from the URL query parameter. This endpoint:
+//  *   1. Calls Paystack to verify the transaction
+//  *   2. Extracts our internal reference from Paystack's metadata
+//  *   3. Updates our Payment record
+//  *   4. Returns the payment status to the frontend
+//  */
+async function verifyFromFrontend(req, res) {
+  const { reference } = req.body;
+  const result = await paymentsService.verifyFromFrontend(reference);
+  return success(res, result, 'Payment verification complete');
+}
+
+module.exports = { initiate, verify, list, verifyFromFrontend };
